@@ -1,0 +1,10 @@
+{
+  "movieName": "Name of the movie",
+  "theatreName": "Name of the theatre",
+  "runDateFrom": "2019-01-01",
+  "runDateTo": "2019-01-01",
+  "numberOfShows": 10,
+  "netCollection": 23523.0,
+  "theatreShare": 50,
+  "distributorShare": 11761.5
+}

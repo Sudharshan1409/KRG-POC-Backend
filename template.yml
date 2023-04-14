@@ -1,0 +1,174 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Image resizing service
+
+Parameters:
+  helloSignApiKey:
+    Type: String
+    Default: ""
+    Description: API KEY for hellosign
+
+Resources:
+  ## S3 bucket
+  krgBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - "POST"
+              - "GET"
+              - "PUT"
+              - "HEAD"
+              - "DELETE"
+            AllowedOrigins:
+              - "*"
+            ExposedHeaders:
+              - "x-amz-server-side-encryption"
+              - "x-amz-request-id"
+              - "x-amz-id-2"
+              - "ETag"
+            Id: myCORSRuleId1
+
+  # create a dynamo db table
+
+  krgTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  ## Lambda function
+  postS3UploadLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/postS3UploadLambda/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Timeout: 60
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref krgBucket
+          HELLOSIGN_API_KEY: !Ref helloSignApiKey
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref krgBucket
+      Events:
+        postS3UploadEvent:
+          Type: Api
+          Properties:
+            Path: /postS3Upload
+            Method: POST
+            RestApiId: !Ref krgAPI
+
+  getMovieDetails:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/getMovieDetails/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Timeout: 60
+      Environment:
+        Variables:
+          KRG_TABLE: !Ref krgTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref krgTable
+      Events:
+        getMovieDetails:
+          Type: Api
+          Properties:
+            Path: /getMovieDetails
+            Method: GET
+            RestApiId: !Ref krgAPI
+
+  generateInvoice:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/generateInvoice/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Timeout: 300
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref krgBucket
+          KRG_TABLE: !Ref krgTable
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref krgBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref krgTable
+      Events:
+        generateInvoiceEvent:
+          Type: Api
+          Properties:
+            Path: /generateInvoice
+            Method: POST
+            RestApiId: !Ref krgAPI
+
+  submitApproval:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/postS3UploadLambda/
+      Handler: submitApproval.handler
+      Runtime: nodejs18.x
+      Timeout: 300
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref krgBucket
+          KRG_TABLE: !Ref krgTable
+          HELLOSIGN_API_KEY: !Ref helloSignApiKey
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref krgBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref krgTable
+      Events:
+        submitApprovalEvent:
+          Type: Api
+          Properties:
+            Path: /submitForApproval
+            Method: POST
+            RestApiId: !Ref krgAPI
+
+  krgCallbackLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/callbackLambda/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Timeout: 60
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref krgBucket
+          KRG_TABLE: !Ref krgTable
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref krgBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref krgTable
+        - SESCrudPolicy:
+            IdentityName: "*"
+      Events:
+        CallBackEvent:
+          Type: Api
+          Properties:
+            Path: /callback
+            Method: POST
+            RestApiId: !Ref krgAPI
+
+  krgAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"

@@ -1,0 +1,12 @@
+{
+  "files": [
+    {
+      "key": "key1.pdf",
+      "proofs": ["key1_proof1.pdf", "key1_proof2.pdf"]
+    },
+    {
+      "key": "key2.pdf",
+      "proofs": ["key2_proof1.pdf", "key2_proof2.pdf"]
+    }
+  ]
+}
